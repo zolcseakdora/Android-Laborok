@@ -1,0 +1,160 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  HttpCode,
+  ParseIntPipe,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { ProfileService } from './profile.service';
+import { CreateProfileDto } from './dto/create-profile.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { GetCurrentUser, Public } from 'src/auth/common/decorators';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+} from '@nestjs/swagger';
+import { ProfileResponseDto } from './dto/profile-response.dto';
+import { UpdateFcmTokenDto } from './dto/update-fcm-token.dto';
+import { Profile } from './entities/profile.entity';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UpdateProfileImageDto } from './dto/update-profile-image.dto';
+import * as Multer from 'multer';
+
+@ApiTags('Profile')
+@ApiBearerAuth('access-token')
+@Controller('profile')
+export class ProfileController {
+  constructor(private readonly profileService: ProfileService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create Profile' })
+  @ApiResponse({
+    status: 201,
+    description: 'Profile created.',
+    type: ProfileResponseDto,
+  })
+  async create(@Body() createProfileDto: CreateProfileDto) {
+    return await this.profileService.create(createProfileDto);
+  }
+
+  @Get('all')
+  @ApiOperation({ summary: 'List All Profiles' })
+  @ApiResponse({
+    status: 200,
+    description: 'All profiles.',
+    type: [ProfileResponseDto],
+  })
+  async findAll() {
+    return await this.profileService.findAll();
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get My Profile' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current user profile.',
+    type: ProfileResponseDto,
+  })
+  async findMe(@GetCurrentUser('profileId') id: number) {
+    const profile = await this.profileService.findOne(id, id);
+    // console.log('base64: ', profile.profileImageData.toString('base64'));
+    return this.toResponse(profile);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get Profile by ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile by ID.',
+    type: ProfileResponseDto,
+  })
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @GetCurrentUser('profileId') currentUserId: number,
+  ) {
+    const profile = await this.profileService.findOne(id, currentUserId);
+    // console.log('base64: ', profile.profileImageData.toString('base64'));
+    return this.toResponse(profile);
+  }
+
+  @Patch()
+  @ApiOperation({ summary: 'Update My Profile' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated.',
+    type: ProfileResponseDto,
+  })
+  async update(
+    @GetCurrentUser('profileId') id: number,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return await this.profileService.update(id, updateProfileDto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete Profile by ID' })
+  @ApiResponse({ status: 204, description: 'Profile deleted.' })
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    await this.profileService.remove(id);
+  }
+
+  @Post('update-fcm-token')
+  @ApiOperation({ summary: 'Update FCM Token' })
+  @ApiResponse({ status: 200, description: 'FCM token updated.' })
+  async updateFcmToken(
+    @GetCurrentUser('profileId') id: number,
+    @Body() token: UpdateFcmTokenDto,
+  ) {
+    return await this.profileService.updateFcmToken(id, token);
+  }
+
+  @Post('upload-profile-image')
+  @ApiOperation({ summary: 'Upload profile image' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: UpdateProfileImageDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile image uploaded successfully.',
+    type: ProfileResponseDto,
+  })
+  @UseInterceptors(FileInterceptor('profileImage'))
+  async uploadProfileImage(
+    @GetCurrentUser('profileId') id: number,
+    @UploadedFile() file: Multer.File,
+  ) {
+    const updatedProfile = await this.profileService.updateProfileImage(
+      id,
+      file,
+    );
+    return this.toResponse(updatedProfile); // 🔹 Most már biztos van user.email
+  }
+
+  private toResponse(profile: Profile): ProfileResponseDto {
+    return {
+      id: profile.id,
+      email: profile.user.email,
+      username: profile.username,
+      description: profile.description,
+      profileImageUrl: profile.profileImageUrl,
+      profileImageBase64: profile.profileImageData
+        ? profile.profileImageData.toString('base64')
+        : undefined,
+      coverImageUrl: profile.coverImageUrl,
+      fcmToken: profile.fcmToken,
+      preferences: profile.preferences,
+      created_at: profile.created_at,
+      updated_at: profile.updated_at,
+    };
+  }
+}

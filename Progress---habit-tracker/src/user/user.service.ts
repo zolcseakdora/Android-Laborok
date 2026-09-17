@@ -1,0 +1,188 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from './entities/user.entity';
+import { Repository } from 'typeorm';
+import { AuthDto } from 'src/auth/dto';
+import { Profile } from '../profile/entities/profile.entity';
+import { ProfileService } from 'src/profile/profile.service';
+import { GoogleAuthDto } from 'src/auth/dto/google.auth.dto';
+import { UserResponseDto } from './dtos/user-response.dto';
+import { ProfileResponseDto } from 'src/profile/dto/profile-response.dto';
+@Injectable()
+export class UserService {
+  constructor(
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    private readonly profileService: ProfileService,
+  ) {}
+  async findOne(email: string) {
+    return this.userRepo.findOne({
+      where: { email },
+      relations: ['profile'],
+    });
+  }
+  async findOneById(id: number) {
+    return this.userRepo.findOneBy({ id });
+  }
+  async findAll(): Promise<UserResponseDto[]> {
+    const users = await this.userRepo.find({
+      relations: ['profile'],
+    });
+    return users.map((user) => this.mapToResponseDto(user));
+  }
+  async createUser({
+    username,
+    email,
+    password,
+  }: AuthDto): Promise<UserResponseDto> {
+    const user = this.userRepo.create({ email, password });
+
+    // blank profile
+    const profile = await this.profileService.create({
+      username,
+      userId: user.id,
+    });
+
+    user.profile = profile;
+
+    const savedUser = await this.userRepo.save(user);
+
+    return {
+      id: savedUser.id,
+      email: savedUser.email,
+      auth_provider: savedUser.auth_provider,
+      profile: {
+        id: savedUser.profile.id,
+        email: savedUser.email, // fontos
+        username: savedUser.profile.username,
+        description: savedUser.profile.description,
+        profileImageUrl: savedUser.profile.profileImageUrl,
+        profileImageBase64: savedUser.profile.profileImageData
+          ? savedUser.profile.profileImageData.toString('base64')
+          : undefined,
+        coverImageUrl: savedUser.profile.coverImageUrl,
+        fcmToken: savedUser.profile.fcmToken,
+        preferences: savedUser.profile.preferences,
+        created_at: savedUser.profile.created_at,
+        updated_at: savedUser.profile.updated_at,
+      },
+    };
+  }
+
+  async createGoogleUser({
+    username,
+    email,
+    profileImageUrl,
+    authProviderId,
+    authProvider,
+  }: GoogleAuthDto) {
+    const user = this.userRepo.create({
+      email,
+      auth_provider: authProvider,
+      auth_provider_id: authProviderId,
+    });
+
+    const profile = await this.profileService.create({
+      username,
+      userId: user.id,
+      profileImageUrl: profileImageUrl,
+    });
+
+    user.profile = profile;
+
+    return this.userRepo.save(user);
+  }
+
+  async updateRefreshToken(userId: number, refreshToken: string | null) {
+    if (refreshToken === null) {
+      return await this.userRepo.update(
+        { id: userId },
+        {
+          hashedRt: null,
+        },
+      );
+    } else {
+      return await this.userRepo.update(
+        { id: userId },
+        {
+          hashedRt: refreshToken,
+        },
+      );
+    }
+  }
+
+  async getProfileIdByUserId(userId: number): Promise<number | null> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['profile'],
+    });
+
+    if (!user || !user.profile) {
+      return null;
+    }
+
+    return user.profile.id;
+  }
+
+  private mapToResponseDto(user: User): UserResponseDto {
+    return {
+      id: user.id,
+      email: user.email,
+      auth_provider: user.auth_provider,
+      profile: this.mapToProfileResponseDto(user.profile, user.email),
+    };
+  }
+
+  private mapToProfileResponseDto(
+    profile: Profile,
+    email?: string,
+  ): ProfileResponseDto {
+    if (!profile) return null;
+    return {
+      id: profile.id,
+      email: email,
+      username: profile.username,
+      description: profile.description,
+      profileImageUrl: profile.profileImageUrl,
+      profileImageBase64: profile.profileImageData
+        ? profile.profileImageData.toString('base64')
+        : undefined,
+      coverImageUrl: profile.coverImageUrl,
+      fcmToken: profile.fcmToken,
+      preferences: profile.preferences,
+      created_at: profile.created_at,
+      updated_at: profile.updated_at,
+    };
+  }
+
+  async updatePassword(userId: number, newHashedPassword: string) {
+    await this.userRepo.update({ id: userId }, { password: newHashedPassword });
+  }
+
+  async updateUserProfile(
+    userId: number,
+    updates: Partial<Profile>,
+  ): Promise<Profile> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['profile'],
+    });
+
+    if (!user || !user.profile) {
+      throw new Error('User or profile not found');
+    }
+
+    Object.assign(user.profile, updates);
+
+    return this.profileService.save(user.profile);
+  }
+
+  async findFullProfileByUserId(userId: number): Promise<Profile> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['profile'],
+    });
+
+    if (!user?.profile) throw new Error('Profile not found');
+    return this.profileService.findOneWithImage(user.profile.id);
+  }
+}
