@@ -3,7 +3,7 @@ package com.example.progr3ssapp
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-
+import com.example.progr3ssapp.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     companion object {
@@ -12,7 +12,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        val binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        binding.textView.text = intent.getStringExtra("message")
         Log.d(TAG, "onCreate: MainActivity created.")
     }
 

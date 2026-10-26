@@ -3,6 +3,8 @@ package com.example.progr3ssapp
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import android.content.Intent
+import com.example.progr3ssapp.databinding.ActivitySplashBinding
 
 class SplashActivity : AppCompatActivity() {
 
@@ -12,7 +14,14 @@ class SplashActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_splash)
+        val binding = ActivitySplashBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        binding.button.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra("message", binding.editText.text.toString())
+            startActivity(intent)
+        }
         Log.d(TAG, "onCreate: SplashActivity created.")
     }
 
