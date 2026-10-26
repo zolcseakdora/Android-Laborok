@@ -14,8 +14,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        binding.textView.text = intent.getStringExtra("message")
+        binding.textView.text = intent.getStringExtra("message") ?: "Welcome to Progr3ss"
         Log.d(TAG, "onCreate: MainActivity created.")
     }
 
