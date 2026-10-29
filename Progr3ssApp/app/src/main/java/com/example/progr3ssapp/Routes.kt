@@ -10,3 +10,6 @@ import kotlinx.serialization.Serializable
     val userId: String = "guest",
     val userName: String = "Guest"
 )
+
+@kotlinx.serialization.Serializable
+data object Register
