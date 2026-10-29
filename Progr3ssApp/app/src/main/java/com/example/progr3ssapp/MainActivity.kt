@@ -1,50 +1,51 @@
 package com.example.progr3ssapp
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
 import android.os.Bundle
-import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
-import com.example.progr3ssapp.databinding.ActivityMainBinding
-class MainActivity : AppCompatActivity() {
+import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.material3.MaterialTheme
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-    companion object {
-        private const val TAG = "MainActivity"
-    }
-
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Az AndroidX splash a super.onCreate ELŐTT települ.
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        val binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.textView.text = intent.getStringExtra("message") ?: "Welcome to Progr3ss"
-        Log.d(TAG, "onCreate: MainActivity created.")
-    }
 
-    override fun onStart() {
-        super.onStart()
-        Log.d(TAG, "onStart: MainActivity started.")
-    }
+        // 1,5 másodperc minimum splash idő a labor példája szerint.
+        var isLoading = true
+        lifecycleScope.launch {
+            delay(1500L)
+            isLoading = false
+        }
+        splashScreen.setKeepOnScreenCondition { isLoading }
 
-    override fun onResume() {
-        super.onResume()
-        Log.d(TAG, "onResume: MainActivity resumed.")
-    }
+        // 0,5 másodperces elhalványulás.
+        splashScreen.setOnExitAnimationListener { provider ->
+            ObjectAnimator.ofFloat(provider.view, View.ALPHA, 1f, 0f).apply {
+                duration = 500L
+                interpolator = AccelerateDecelerateInterpolator()
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        provider.remove()
+                    }
+                })
+                start()
+            }
+        }
 
-    override fun onPause() {
-        super.onPause()
-        Log.d(TAG, "onPause: MainActivity paused.")
-    }
-
-    override fun onStop() {
-        super.onStop()
-        Log.d(TAG, "onStop: MainActivity stopped.")
-    }
-
-    override fun onRestart() {
-        super.onRestart()
-        Log.d(TAG, "onRestart: MainActivity restarted.")
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        Log.d(TAG, "onDestroy: MainActivity destroyed.")
+        setContent {
+            MaterialTheme {
+                AppNavGraph()
+            }
+        }
     }
 }
