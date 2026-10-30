@@ -31,6 +31,7 @@ import com.example.progr3ssapp.ui.LoginUiState
 import com.example.progr3ssapp.ui.LoginViewModel
 import com.example.progr3ssapp.ui.RegisterUiState
 import com.example.progr3ssapp.ui.RegisterViewModel
+import androidx.compose.foundation.layout.Box
 
 @Composable
 fun LoginScreen(
@@ -93,26 +94,74 @@ fun LoginScreen(
 }
 
 @Composable
-fun HomeScreen(onNavigateToProfile: (String, String) -> Unit) {
-    val user by AuthSession.currentUser.collectAsStateWithLifecycle()
+
+fun HomeScreen(
+    onNavigateToProfile: (String, String) -> Unit,
+    onAddHabit: () -> Unit,
+    onNewSchedule: () -> Unit
+) {
+    // Bejelentkezett felhasználó adatai
+    val user by AuthSession.currentUser
+        .collectAsStateWithLifecycle()
+
     val id = user?.id?.toString().orEmpty()
-    val name = user?.profile?.username?.takeIf { it.isNotBlank() }
-        ?: user?.email ?: "Ismeretlen felhasznalo"
+
+    val name = user?.profile?.username
+        ?.takeIf { it.isNotBlank() }
+        ?: user?.email
+        ?: "Ismeretlen felhasználó"
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxSize()
     ) {
-        Text("Welcome to Home", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(12.dp))
-        Text("Bejelentkezve: $name")
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = { onNavigateToProfile(id, name) }, enabled = user != null) {
-            Text("View Profile")
+
+        // ====================================
+        // FELHASZNÁLÓI ADATOK
+        // ====================================
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    top = 12.dp,
+                    bottom = 6.dp
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            Text(
+                text = "Bejelentkezve: $name",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            // A régi View Profile gomb megmarad
+            Button(
+                onClick = {
+                    onNavigateToProfile(id, name)
+                },
+                enabled = user != null
+            ) {
+                Text("View Profile")
+            }
+        }
+
+        // ====================================
+        // ÚJ HABIT DASHBOARD - 7. LABOR
+        // ====================================
+
+        Box(
+            modifier = Modifier.weight(1f)
+        ) {
+            HabitDashboardContent(
+                onAddHabit = onAddHabit,
+                onNewSchedule = onNewSchedule
+            )
         }
     }
 }
+
 
 @Composable
 fun ProfileScreen(userId: String, userName: String, onLogout: () -> Unit) {

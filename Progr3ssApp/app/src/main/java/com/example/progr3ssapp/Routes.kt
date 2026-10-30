@@ -13,3 +13,10 @@ import kotlinx.serialization.Serializable
 
 @kotlinx.serialization.Serializable
 data object Register
+
+
+@kotlinx.serialization.Serializable
+data object AddHabit
+
+@kotlinx.serialization.Serializable
+data object CreateSchedule

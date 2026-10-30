@@ -57,6 +57,9 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
                 // Az erzekeny valaszt elobb titkositva taroljuk.
                 secureStore.save(body)
+                // A JWT token frissítése a Retrofit kliensben
+                com.example.progr3ssapp.network.RetrofitClient
+                    .updateAccessToken(body.tokens?.accessToken)
                 // A felulet csak a useradatot figyeli, tokent nem.
                 AuthSession.setUser(user)
                 _uiState.value = LoginUiState.Success(body)
