@@ -38,7 +38,7 @@ data class AuthUser(
     val profile: AuthProfile? = null
 )
 
-// A felhasználó profiladatai
+// A felhasználó profiladatai (GET /profile is ezt adja vissza)
 data class AuthProfile(
     @SerializedName("id")
     val id: Int? = null,
@@ -81,4 +81,25 @@ data class AuthTokens(
 
     @SerializedName("refreshToken")
     val refreshToken: String? = null
+)
+
+// POST /auth/reset-password-via-email
+data class ResetPasswordRequest(
+    @SerializedName("email")
+    val email: String
+)
+
+// PATCH /profile
+data class UpdateProfileRequest(
+    @SerializedName("username")
+    val username: String? = null,
+
+    @SerializedName("description")
+    val description: String? = null
+)
+
+// Általános { message } válasz
+data class MessageResponse(
+    @SerializedName("message")
+    val message: String? = null
 )

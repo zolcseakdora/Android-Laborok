@@ -2,6 +2,10 @@ package com.example.progr3ssapp.network.models
 
 import com.google.gson.annotations.SerializedName
 
+// ==========================================
+// HABIT
+// ==========================================
+
 data class HabitCategory(
     val id: Long,
     val name: String,
@@ -12,8 +16,8 @@ data class HabitResponse(
     val id: Long,
     val name: String,
     val description: String? = null,
-    val category: HabitCategory,
-    val goal: String,
+    val category: HabitCategory? = null,
+    val goal: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 )
@@ -24,6 +28,10 @@ data class CreateHabitRequest(
     val categoryId: Long,
     val goal: String
 )
+
+// ==========================================
+// SCHEDULE
+// ==========================================
 
 data class ParticipantDto(
     val id: Long,
@@ -55,9 +63,9 @@ data class ScheduleResponse(
     val type: String? = null,
     @SerializedName("duration_minutes") val durationMinutes: Int? = null,
     val notes: String? = null,
-    val participants: List<ParticipantDto> = emptyList(),
+    val participants: List<ParticipantDto>? = null,
     val habit: HabitResponse? = null,
-    val progress: List<ProgressResponseDto> = emptyList(),
+    val progress: List<ProgressResponseDto>? = null,
     @SerializedName("is_participant_only") val isParticipantOnly: Boolean = false
 )
 
@@ -82,4 +90,29 @@ data class CreateCustomScheduleRequest(
     @SerializedName("is_custom") val isCustom: Boolean = true,
     val participantIds: List<Long> = emptyList(),
     val notes: String? = null
+)
+
+// POST /schedule/recurring/weekdays
+// daysOfWeek: 1 = hétfő ... 7 = vasárnap
+data class CreateWeekdayScheduleRequest(
+    val habitId: Long,
+    @SerializedName("start_time") val startTime: String,
+    @SerializedName("end_time") val endTime: String? = null,
+    @SerializedName("duration_minutes") val durationMinutes: Int? = null,
+    val daysOfWeek: List<Int>,
+    val numberOfWeeks: Int = 4,
+    val participantIds: List<Long> = emptyList(),
+    val notes: String? = null
+)
+
+// ==========================================
+// PROGRESS
+// ==========================================
+
+data class CreateProgressRequest(
+    val scheduleId: Long,
+    val date: String,
+    @SerializedName("logged_time") val loggedTime: Int? = null,
+    val notes: String? = null,
+    @SerializedName("is_completed") val isCompleted: Boolean = false
 )
