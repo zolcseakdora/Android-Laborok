@@ -1,248 +1,183 @@
-
 package com.example.progr3ssapp
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.progr3ssapp.network.models.HabitCategory
 import com.example.progr3ssapp.ui.AddHabitViewModel
+import com.example.progr3ssapp.ui.components.AppCard
+import com.example.progr3ssapp.ui.components.AppTextField
+import com.example.progr3ssapp.ui.components.AppTopBar
+import com.example.progr3ssapp.ui.components.ErrorText
+import com.example.progr3ssapp.ui.components.FieldLabel
+import com.example.progr3ssapp.ui.components.PrimaryButton
+import com.example.progr3ssapp.ui.components.SecondaryButton
+import com.example.progr3ssapp.ui.components.categoryEmoji
+import com.example.progr3ssapp.ui.theme.AppColors
 
 // ==========================================
-// 7. LABOR - ADD HABIT SCREEN
+// ADD HABIT – név, leírás, cél, kategória (ikon)
 // ==========================================
 
 @Composable
 fun AddHabitScreen(
     onBack: () -> Unit,
     onSaved: () -> Unit,
-    onNavigateToCreateSchedule: () -> Unit,
     habitViewModel: AddHabitViewModel = viewModel()
 ) {
+    val state by habitViewModel.uiState.collectAsStateWithLifecycle()
 
-    val state by habitViewModel.uiState
-        .collectAsStateWithLifecycle()
-
-    // Sikeres mentés után visszatérünk
-    // a Home képernyőre.
     LaunchedEffect(state.isSaved) {
-        if (state.isSaved) {
-            onSaved()
-        }
+        if (state.isSaved) onSaved()
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-
-        verticalArrangement =
-            Arrangement.spacedBy(12.dp)
+            .imePadding()
     ) {
+        AppTopBar(title = "Add Habit", subtitle = "Define a new habit", onBack = onBack)
 
-        // ==================================
-        // CÍM
-        // ==================================
-
-        Text(
-            text = "Add New Habit",
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        Text(
-            text = "Create a habit and set your goal.",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        HorizontalDivider()
-
-        // ==================================
-        // SZOKÁS NEVE
-        // ==================================
-
-        OutlinedTextField(
-            value = state.name,
-            onValueChange = habitViewModel::onNameChange,
-            label = { Text("Habit Name") },
-            placeholder = {
-                Text("e.g. Morning Run")
-            },
-            singleLine = true,
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // ==================================
-        // LEÍRÁS
-        // ==================================
-
-        OutlinedTextField(
-            value = state.description,
-            onValueChange =
-                habitViewModel::onDescriptionChange,
-
-            label = { Text("Description (optional)") },
-            placeholder = {
-                Text("What will you do?")
-            },
-
-            minLines = 2,
-            maxLines = 4,
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // ==================================
-        // CÉL
-        // ==================================
-
-        OutlinedTextField(
-            value = state.goal,
-            onValueChange = habitViewModel::onGoalChange,
-
-            label = { Text("Goal") },
-            placeholder = {
-                Text("e.g. Run 5 km every day")
-            },
-
-            singleLine = true,
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // ==================================
-        // KATEGÓRIÁK
-        // ==================================
-
-        Text(
-            text = "Select Category",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        // Kategóriák betöltése
-        if (state.isLoadingCategories) {
-
-            CircularProgressIndicator()
-            Text("Loading categories...")
-
-        } else if (state.categories.isEmpty()) {
-
-            Text("No categories available.")
-
-            OutlinedButton(
-                onClick = habitViewModel::loadCategories
-            ) {
-                Text("Retry")
-            }
-
-        } else {
-
-            // A kategóriák kattintható chipként
-            // jelennek meg.
-            LazyRow(
-                horizontalArrangement =
-                    Arrangement.spacedBy(8.dp),
-
-                modifier = Modifier.fillMaxWidth()
-            ) {
-
-                items(
-                    items = state.categories,
-                    key = { it.id }
-                ) { category ->
-
-                    FilterChip(
-                        selected =
-                            state.selectedCategoryId ==
-                                    category.id,
-
-                        onClick = {
-                            habitViewModel.onCategorySelected(
-                                category.id
-                            )
-                        },
-
-                        label = {
-                            Text(category.name)
-                        },
-
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            AppCard {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AppTextField(
+                        value = state.name,
+                        onValueChange = habitViewModel::onNameChange,
+                        label = "Habit name",
+                        placeholder = "e.g. Morning Run",
+                        enabled = !state.isSaving
+                    )
+                    AppTextField(
+                        value = state.description,
+                        onValueChange = habitViewModel::onDescriptionChange,
+                        label = "Description",
+                        placeholder = "A short motivation behind the habit",
+                        singleLine = false,
+                        minLines = 2,
+                        enabled = !state.isSaving
+                    )
+                    AppTextField(
+                        value = state.goal,
+                        onValueChange = habitViewModel::onGoalChange,
+                        label = "Goal",
+                        placeholder = "e.g. Run 10 times in 2 weeks",
                         enabled = !state.isSaving
                     )
                 }
             }
-        }
 
-        // ==================================
-        // HIBAÜZENET
-        // ==================================
-
-        state.error?.let { errorMessage ->
-
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-
-        // ==================================
-        // MENTÉS
-        // ==================================
-
-        Button(
-            onClick = habitViewModel::createHabit,
-
-            enabled =
-                !state.isSaving &&
-                        !state.isLoadingCategories &&
-                        state.selectedCategoryId != null,
-
-            modifier = Modifier.fillMaxWidth()
-        ) {
-
-            if (state.isSaving) {
-                Text("Saving...")
-            } else {
-                Text("Create Habit")
+            AppCard {
+                Column {
+                    FieldLabel("Category")
+                    Spacer(Modifier.height(4.dp))
+                    when {
+                        state.isLoadingCategories -> CircularProgressIndicator(color = AppColors.Primary)
+                        state.categories.isEmpty() -> {
+                            Text("No categories available.", color = AppColors.TextSecondary)
+                            Spacer(Modifier.height(8.dp))
+                            SecondaryButton("Retry", onClick = habitViewModel::loadCategories)
+                        }
+                        else -> CategoryGrid(
+                            categories = state.categories,
+                            selectedId = state.selectedCategoryId,
+                            enabled = !state.isSaving,
+                            onSelect = habitViewModel::onCategorySelected
+                        )
+                    }
+                }
             }
+
+            ErrorText(state.error)
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SecondaryButton(
+                    "Cancel",
+                    onClick = onBack,
+                    enabled = !state.isSaving,
+                    modifier = Modifier.weight(1f)
+                )
+                PrimaryButton(
+                    "Create",
+                    onClick = habitViewModel::createHabit,
+                    loading = state.isSaving,
+                    enabled = !state.isLoadingCategories && state.selectedCategoryId != null,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(24.dp))
         }
+    }
+}
 
-        if (state.isSaving) {
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        // ==================================
-        // ÜTEMEZÉS OLDAL
-        // ==================================
-
-        TextButton(
-            onClick = onNavigateToCreateSchedule,
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Schedule an existing habit")
-        }
-
-        // ==================================
-        // VISSZA
-        // ==================================
-
-        OutlinedButton(
-            onClick = onBack,
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Back to Home")
+@Composable
+private fun CategoryGrid(
+    categories: List<HabitCategory>,
+    selectedId: Long?,
+    enabled: Boolean,
+    onSelect: (Long) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        categories.chunked(4).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { category ->
+                    val selected = category.id == selectedId
+                    val shape = RoundedCornerShape(12.dp)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(shape)
+                            .background(if (selected) AppColors.Primary.copy(alpha = 0.25f) else AppColors.Field)
+                            .border(1.dp, if (selected) AppColors.Primary else AppColors.Outline, shape)
+                            .clickable(enabled = enabled) { onSelect(category.id) }
+                            .padding(vertical = 10.dp, horizontal = 4.dp)
+                    ) {
+                        Text(categoryEmoji(category.name), fontSize = 22.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            category.name,
+                            color = AppColors.TextPrimary,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
         }
     }
 }
