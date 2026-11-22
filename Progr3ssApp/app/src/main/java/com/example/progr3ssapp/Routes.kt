@@ -2,21 +2,23 @@ package com.example.progr3ssapp
 
 import kotlinx.serialization.Serializable
 
-// Type-safe routes from the navigation lab PDF.
+// Típusbiztos navigációs útvonalak
+
+// Bejelentkezés előtt
+@Serializable data object Splash
 @Serializable data object Login
+@Serializable data object Register
+@Serializable data object ResetPassword
+
+// Bejelentkezés után (alsó navigációval)
 @Serializable data object MainGraph
 @Serializable data object Home
-@Serializable data class Profile(
-    val userId: String = "guest",
-    val userName: String = "Guest"
-)
+@Serializable data object Assistant
+@Serializable data object Profile
 
-@kotlinx.serialization.Serializable
-data object Register
-
-
-@kotlinx.serialization.Serializable
-data object AddHabit
-
-@kotlinx.serialization.Serializable
-data object CreateSchedule
+// További képernyők
+@Serializable data object AddHabit
+@Serializable data object CreateSchedule
+@Serializable data class ScheduleDetails(val id: Long)
+@Serializable data class EditSchedule(val id: Long)
+@Serializable data object EditProfile
