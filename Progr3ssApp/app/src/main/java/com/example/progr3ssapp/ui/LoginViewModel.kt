@@ -1,79 +1,114 @@
 package com.example.progr3ssapp.ui
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.progr3ssapp.model.AuthResponse
+import com.example.progr3ssapp.network.userMessage
 import com.example.progr3ssapp.repository.AuthRepository
-import com.example.progr3ssapp.session.AuthSession
-import com.example.progr3ssapp.session.SecureSessionStore
+import com.example.progr3ssapp.session.SessionManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.IOException
+
+// ==========================================
+// LOGIN
+// ==========================================
 
 sealed interface LoginUiState {
     data object Idle : LoginUiState
     data object Loading : LoginUiState
-    data class Success(val response: AuthResponse) : LoginUiState
+    data object Success : LoginUiState
     data class Error(val message: String) : LoginUiState
 }
 
-class LoginViewModel(application: Application) : AndroidViewModel(application) {
+class LoginViewModel : ViewModel() {
+
     private val repository = AuthRepository()
-    private val secureStore = SecureSessionStore(application)
+
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
     fun login(email: String, password: String) {
         if (_uiState.value is LoginUiState.Loading) return
+
         if (email.isBlank() || password.isBlank()) {
-            _uiState.value = LoginUiState.Error("Email es jelszo megadasa kotelezo!")
+            _uiState.value = LoginUiState.Error("Az email és a jelszó megadása kötelező.")
             return
         }
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
+            _uiState.value = LoginUiState.Error("Érvénytelen email cím.")
+            return
+        }
+
         viewModelScope.launch {
             _uiState.value = LoginUiState.Loading
-            try {
-                val response = repository.login(email.trim(), password)
-                if (!response.isSuccessful) {
-                    val message = when (response.code()) {
-                        400 -> "Hibas bejelentkezesi keres."
-                        401, 403 -> "A szerver elutasitotta a bejelentkezest."
-                        404 -> "A bejelentkezesi vegpont nem talalhato."
-                        in 500..599 -> "Szerverhiba tortent."
-                        else -> "HTTP hiba: ${response.code()}"
+
+            repository.login(email.trim(), password)
+                .onSuccess { body ->
+                    try {
+                        if (body.user == null || body.tokens?.accessToken.isNullOrBlank()) {
+                            _uiState.value = LoginUiState.Error("Hiányos szerverválasz.")
+                            return@onSuccess
+                        }
+                        SessionManager.onLoggedIn(body)
+                        _uiState.value = LoginUiState.Success
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        _uiState.value = LoginUiState.Error(e.userMessage())
                     }
-                    _uiState.value = LoginUiState.Error(message)
-                    return@launch
                 }
-
-                val body = response.body()
-                val user = body?.user
-                if (body == null || user == null || body.tokens?.accessToken.isNullOrBlank()) {
-                    _uiState.value = LoginUiState.Error("Hianyos szervervalasz!")
-                    return@launch
+                .onFailure { e ->
+                    if (e is CancellationException) throw e
+                    _uiState.value = LoginUiState.Error(e.userMessage("Sikertelen bejelentkezés."))
                 }
-
-                // Az erzekeny valaszt elobb titkositva taroljuk.
-                secureStore.save(body)
-                // A JWT token frissítése a Retrofit kliensben
-                com.example.progr3ssapp.network.RetrofitClient
-                    .updateAccessToken(body.tokens?.accessToken)
-                // A felulet csak a useradatot figyeli, tokent nem.
-                AuthSession.setUser(user)
-                _uiState.value = LoginUiState.Success(body)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IOException) {
-                _uiState.value = LoginUiState.Error("Nem erheto el a backend. Ellenorizd a Dockert!")
-            } catch (e: Exception) {
-                _uiState.value = LoginUiState.Error("A bejelentkezest vagy a biztonsagos mentest nem sikerult befejezni.")
-            }
         }
     }
 
     fun resetState() {
         _uiState.value = LoginUiState.Idle
+    }
+}
+
+// ==========================================
+// RESET PASSWORD
+// ==========================================
+
+data class ResetPasswordUiState(
+    val isLoading: Boolean = false,
+    val sentTo: String? = null,
+    val error: String? = null
+)
+
+class ResetPasswordViewModel : ViewModel() {
+
+    private val repository = AuthRepository()
+
+    private val _uiState = MutableStateFlow(ResetPasswordUiState())
+    val uiState = _uiState.asStateFlow()
+
+    fun reset(email: String) {
+        if (_uiState.value.isLoading) return
+        val trimmed = email.trim()
+
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches()) {
+            _uiState.value = ResetPasswordUiState(error = "Adj meg egy érvényes email címet.")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = ResetPasswordUiState(isLoading = true)
+
+            repository.resetPassword(trimmed)
+                .onSuccess {
+                    _uiState.value = ResetPasswordUiState(sentTo = trimmed)
+                }
+                .onFailure { e ->
+                    if (e is CancellationException) throw e
+                    _uiState.value = ResetPasswordUiState(
+                        error = e.userMessage("Nem sikerült új jelszót kérni.")
+                    )
+                }
+        }
     }
 }

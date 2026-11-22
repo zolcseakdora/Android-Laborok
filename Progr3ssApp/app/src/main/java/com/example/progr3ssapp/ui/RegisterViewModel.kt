@@ -1,15 +1,21 @@
-
 package com.example.progr3ssapp.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.progr3ssapp.network.userMessage
 import com.example.progr3ssapp.repository.AuthRepository
+import com.example.progr3ssapp.session.SessionManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// Regisztráció állapotai
+// ==========================================
+// REGISZTRÁCIÓ
+// Sikeres regisztráció után a felhasználó
+// azonnal a Home képernyőre kerül.
+// ==========================================
+
 sealed interface RegisterUiState {
     data object Idle : RegisterUiState
     data object Loading : RegisterUiState
@@ -21,65 +27,65 @@ class RegisterViewModel : ViewModel() {
 
     private val repository = AuthRepository()
 
-    private val _uiState =
-        MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
-
+    private val _uiState = MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
-    // Regisztráció indítása
     fun register(
         username: String,
         email: String,
-        password: String
+        password: String,
+        confirmPassword: String
     ) {
         if (_uiState.value is RegisterUiState.Loading) return
 
-        if (username.isBlank() ||
-            email.isBlank() ||
-            password.isBlank()
-        ) {
-            _uiState.value = RegisterUiState.Error(
-                "Minden mező kitöltése kötelező!"
-            )
-            return
+        val error = when {
+            username.isBlank() || email.isBlank() || password.isBlank() ->
+                "Minden mező kitöltése kötelező."
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() ->
+                "Érvénytelen email cím."
+            password.length < 6 ->
+                "A jelszó legalább 6 karakter legyen."
+            password != confirmPassword ->
+                "A két jelszó nem egyezik."
+            else -> null
         }
-
-        if (!email.contains("@")) {
-            _uiState.value = RegisterUiState.Error(
-                "Hibás emailcím!"
-            )
+        if (error != null) {
+            _uiState.value = RegisterUiState.Error(error)
             return
         }
 
         viewModelScope.launch {
             _uiState.value = RegisterUiState.Loading
 
-            try {
-                val response = repository.register(
-                    username.trim(),
-                    email.trim(),
-                    password
-                )
-
-                if (response.isSuccessful) {
-                    _uiState.value = RegisterUiState.Success
-                } else {
-                    _uiState.value = RegisterUiState.Error(
-                        when (response.code()) {
-                            400 -> "Hibás adatok vagy már létező felhasználó."
-                            409 -> "Ez a felhasználó már létezik."
-                            else -> "Regisztrációs hiba: HTTP ${response.code()}"
+            repository.register(username.trim(), email.trim(), password)
+                .onSuccess { body ->
+                    try {
+                        if (!body.tokens?.accessToken.isNullOrBlank()) {
+                            SessionManager.onLoggedIn(body)
+                            _uiState.value = RegisterUiState.Success
+                        } else {
+                            // Ha a szerver nem adott tokent, bejelentkeztetjük.
+                            repository.login(email.trim(), password)
+                                .onSuccess { login ->
+                                    SessionManager.onLoggedIn(login)
+                                    _uiState.value = RegisterUiState.Success
+                                }
+                                .onFailure { e ->
+                                    _uiState.value = RegisterUiState.Error(
+                                        e.userMessage("Sikeres regisztráció, de a bejelentkezés nem sikerült.")
+                                    )
+                                }
                         }
-                    )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        _uiState.value = RegisterUiState.Error(e.userMessage())
+                    }
                 }
-
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _uiState.value = RegisterUiState.Error(
-                    "Nem sikerült a regisztráció. Ellenőrizd a szervert!"
-                )
-            }
+                .onFailure { e ->
+                    if (e is CancellationException) throw e
+                    _uiState.value = RegisterUiState.Error(e.userMessage("Sikertelen regisztráció."))
+                }
         }
     }
 
