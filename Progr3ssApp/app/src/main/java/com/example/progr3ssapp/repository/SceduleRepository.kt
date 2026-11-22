@@ -1,101 +1,89 @@
-
 package com.example.progr3ssapp.repository
 
 import com.example.progr3ssapp.network.ApiService
 import com.example.progr3ssapp.network.RetrofitClient
 import com.example.progr3ssapp.network.bodyOrThrow
-
+import com.example.progr3ssapp.network.ensureSuccess
 import com.example.progr3ssapp.network.models.CreateCustomScheduleRequest
+import com.example.progr3ssapp.network.models.CreateProgressRequest
 import com.example.progr3ssapp.network.models.CreateRecurringScheduleRequest
+import com.example.progr3ssapp.network.models.CreateWeekdayScheduleRequest
+import com.example.progr3ssapp.network.models.ProgressResponseDto
 import com.example.progr3ssapp.network.models.ScheduleResponse
+import com.example.progr3ssapp.network.models.UpdateScheduleRequest
 
 // ==========================================
-// 7. LABOR - SCHEDULE REPOSITORY
-// Szokások időbeosztásának kezelése
+// SCHEDULE + PROGRESS REPOSITORY
 // ==========================================
 
 class ScheduleRepository(
     private val api: ApiService = RetrofitClient.api
 ) {
 
-    // 1. Egy adott nap ütemezéseinek lekérése
     // GET /schedule/day?date=YYYY-MM-DD
-
-    suspend fun getScheduleByDay(
-        day: String
-    ): Result<List<ScheduleResponse>> =
+    suspend fun getScheduleByDay(day: String): Result<List<ScheduleResponse>> =
         runCatching {
-
             api.getScheduleByDay(day)
-                .bodyOrThrow(
-                    "Nem sikerült lekérni a napi ütemezést"
-                )
+                .bodyOrThrow("Nem sikerült lekérni a napi ütemezést")
         }
 
-
-    // 2. Ismétlődő ütemezés létrehozása
-    // POST /schedule/recurring
-
-    suspend fun createRecurringSchedule(
-        habitId: Long,
-        startTime: String,
-        endTime: String?,
-        durationMinutes: Int,
-        repeatPattern: String,
-        repeatDays: Int,
-        notes: String?
-    ): Result<List<ScheduleResponse>> =
+    // GET /schedule/{id}
+    suspend fun getScheduleById(id: Long): Result<ScheduleResponse> =
         runCatching {
-
-            // Az ütemezés adatainak összeállítása
-            val request = CreateRecurringScheduleRequest(
-                habitId = habitId,
-                startTime = startTime,
-                endTime = endTime,
-                durationMinutes = durationMinutes,
-                repeatPattern = repeatPattern,
-                repeatDays = repeatDays,
-                isCustom = true,
-                participantIds = emptyList(),
-                notes = notes
-            )
-
-            // Kérés elküldése a backendnek
-            api.createRecurringSchedule(request)
-                .bodyOrThrow(
-                    "Nem sikerült létrehozni az ismétlődő ütemezést"
-                )
+            api.getScheduleById(id)
+                .bodyOrThrow("Nem sikerült lekérni az ütemezést")
         }
 
-
-    // 3. Egyszeri ütemezés létrehozása
-    // POST /schedule/custom
-
+    // POST /schedule/custom – egyszeri
     suspend fun createCustomSchedule(
-        habitId: Long,
-        date: String,
-        startTime: String,
-        endTime: String?,
-        durationMinutes: Int,
-        notes: String?
+        request: CreateCustomScheduleRequest
     ): Result<ScheduleResponse> =
         runCatching {
-
-            val request = CreateCustomScheduleRequest(
-                habitId = habitId,
-                date = date,
-                startTime = startTime,
-                endTime = endTime,
-                durationMinutes = durationMinutes,
-                isCustom = true,
-                participantIds = emptyList(),
-                notes = notes
-            )
-
-            // Egyszeri ütemezés mentése
             api.createCustomSchedule(request)
-                .bodyOrThrow(
-                    "Nem sikerült létrehozni az egyszeri ütemezést"
-                )
+                .bodyOrThrow("Nem sikerült létrehozni az ütemezést")
+        }
+
+    // POST /schedule/recurring – daily / weekdays / weekends
+    suspend fun createRecurringSchedule(
+        request: CreateRecurringScheduleRequest
+    ): Result<List<ScheduleResponse>> =
+        runCatching {
+            api.createRecurringSchedule(request)
+                .bodyOrThrow("Nem sikerült létrehozni az ismétlődő ütemezést")
+        }
+
+    // POST /schedule/recurring/weekdays – kiválasztott napokra
+    suspend fun createWeekdaySchedule(
+        request: CreateWeekdayScheduleRequest
+    ): Result<List<ScheduleResponse>> =
+        runCatching {
+            api.createWeekdaySchedule(request)
+                .bodyOrThrow("Nem sikerült létrehozni az ütemezést")
+        }
+
+    // PATCH /schedule/{id}
+    suspend fun updateSchedule(
+        id: Long,
+        request: UpdateScheduleRequest
+    ): Result<ScheduleResponse> =
+        runCatching {
+            api.updateSchedule(id, request)
+                .bodyOrThrow("Nem sikerült módosítani az ütemezést")
+        }
+
+    // DELETE /schedule/{id} – 204, üres törzs
+    suspend fun deleteSchedule(id: Long): Result<Unit> =
+        runCatching {
+            api.deleteSchedule(id)
+                .ensureSuccess("Nem sikerült törölni az ütemezést")
+        }
+
+    // POST /progress
+    suspend fun createProgress(
+        request: CreateProgressRequest
+    ): Result<ProgressResponseDto> =
+        runCatching {
+            api.createProgress(request)
+                .bodyOrThrow("Nem sikerült menteni a haladást")
         }
 }
