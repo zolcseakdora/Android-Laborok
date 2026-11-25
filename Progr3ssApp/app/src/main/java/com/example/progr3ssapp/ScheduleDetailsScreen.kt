@@ -49,6 +49,7 @@ import com.example.progr3ssapp.ui.components.RoundIconButton
 import com.example.progr3ssapp.ui.components.SecondaryButton
 import com.example.progr3ssapp.ui.theme.AppColors
 import com.example.progr3ssapp.utils.DateTimeUtils
+import com.example.progr3ssapp.utils.ProgressUtils
 
 // ==========================================
 // SCHEDULE DETAILS
@@ -165,6 +166,8 @@ fun ScheduleDetailsScreen(
             habitName = state.schedule?.habit?.name ?: "Habit",
             saving = state.isSavingProgress,
             error = state.progressError,
+            goalMinutes = state.schedule?.let { ProgressUtils.goalMinutes(it) } ?: 0,
+            alreadyLogged = state.schedule?.let { ProgressUtils.loggedMinutes(it) } ?: 0,
             onDismiss = viewModel::closeProgress,
             onSave = viewModel::saveProgress
         )
@@ -183,14 +186,11 @@ private fun DetailsContent(
     onNotesChange: (String) -> Unit,
     onSaveNotes: () -> Unit
 ) {
+    // Százalékos haladás: rögzített percek / cél percek (pl. 8 / 10 = 80%)
     val progress = schedule.progress.orEmpty()
-    val loggedMinutes = progress.sumOf { it.loggedTime ?: 0.0 }
-    val goal = schedule.durationMinutes ?: 0
-    val fraction = when {
-        schedule.status == "Completed" || progress.any { it.isCompleted } -> 1f
-        goal > 0 -> (loggedMinutes / goal).toFloat()
-        else -> 0f
-    }
+    val loggedMinutes = ProgressUtils.loggedMinutes(schedule)
+    val goal = ProgressUtils.goalMinutes(schedule)
+    val fraction = ProgressUtils.fraction(schedule)
 
     Column(
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 100.dp),
@@ -237,7 +237,7 @@ private fun DetailsContent(
                 Row {
                     Text("Progress", color = AppColors.TextSecondary, modifier = Modifier.weight(1f))
                     Text(
-                        "${(fraction.coerceIn(0f, 1f) * 100).toInt()}%",
+                        "${ProgressUtils.percent(schedule)}%",
                         color = AppColors.Accent,
                         fontWeight = FontWeight.Bold
                     )
@@ -245,7 +245,7 @@ private fun DetailsContent(
                 ProgressBar(fraction)
                 if (goal > 0) {
                     Text(
-                        "${loggedMinutes.toInt()} of $goal minutes logged",
+                        "$loggedMinutes of $goal minutes logged",
                         color = AppColors.TextSecondary,
                         style = MaterialTheme.typography.bodySmall
                     )

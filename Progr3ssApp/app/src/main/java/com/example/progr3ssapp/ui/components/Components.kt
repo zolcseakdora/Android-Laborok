@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import com.example.progr3ssapp.model.AuthProfile
 import com.example.progr3ssapp.network.RetrofitClient
 import com.example.progr3ssapp.ui.theme.AppColors
+import com.example.progr3ssapp.utils.ProgressUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -538,13 +539,18 @@ fun AddProgressDialog(
     habitName: String,
     saving: Boolean,
     error: String?,
-    defaultCompleted: Boolean = true,
+    goalMinutes: Int = 0,
+    alreadyLogged: Int = 0,
     onDismiss: () -> Unit,
     onSave: (loggedMinutes: Int?, notes: String, completed: Boolean) -> Unit
 ) {
     var minutes by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
-    var completed by rememberSaveable { mutableStateOf(defaultCompleted) }
+    var completed by rememberSaveable { mutableStateOf(false) }
+
+    // Élő előnézet: eddigi + most beírt percek a célhoz képest
+    val total = alreadyLogged + (minutes.toIntOrNull() ?: 0)
+    val percent = ProgressUtils.percent(total, goalMinutes)
 
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
@@ -559,12 +565,32 @@ fun AddProgressDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 AppTextField(
                     value = minutes,
-                    onValueChange = { v -> if (v.all { it.isDigit() } && v.length <= 4) minutes = v },
+                    onValueChange = { v ->
+                        if (v.all { it.isDigit() } && v.length <= 4) {
+                            minutes = v
+                            // A cél elérésekor automatikusan készre jelöljük
+                            val newTotal = alreadyLogged + (v.toIntOrNull() ?: 0)
+                            completed = goalMinutes > 0 && newTotal >= goalMinutes
+                        }
+                    },
                     label = "Logged time (minutes)",
-                    placeholder = "e.g. 30",
+                    placeholder = if (goalMinutes > 0) "Goal: $goalMinutes min" else "e.g. 30",
                     keyboardType = KeyboardType.Number,
                     enabled = !saving
                 )
+                if (goalMinutes > 0) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row {
+                            Text(
+                                "$total / $goalMinutes min",
+                                color = AppColors.TextSecondary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text("$percent%", color = AppColors.Accent, fontWeight = FontWeight.Bold)
+                        }
+                        ProgressBar(percent / 100f)
+                    }
+                }
                 AppTextField(
                     value = notes,
                     onValueChange = { notes = it },

@@ -33,11 +33,13 @@ import com.example.progr3ssapp.ui.components.AddProgressDialog
 import com.example.progr3ssapp.ui.components.AppCard
 import com.example.progr3ssapp.ui.components.CategoryBadge
 import com.example.progr3ssapp.ui.components.ErrorText
+import com.example.progr3ssapp.ui.components.ProgressBar
 import com.example.progr3ssapp.ui.components.SecondaryButton
 import com.example.progr3ssapp.ui.components.SectionHeader
 import com.example.progr3ssapp.ui.components.StatusCircle
 import com.example.progr3ssapp.ui.theme.AppColors
 import com.example.progr3ssapp.utils.DateTimeUtils
+import com.example.progr3ssapp.utils.ProgressUtils
 
 // ==========================================
 // HOME – Today's plan
@@ -143,6 +145,8 @@ fun HomeScreen(
             habitName = schedule.habit?.name ?: "Habit",
             saving = state.isSavingProgress,
             error = state.progressError,
+            goalMinutes = ProgressUtils.goalMinutes(schedule),
+            alreadyLogged = ProgressUtils.loggedMinutes(schedule),
             onDismiss = homeViewModel::closeProgress,
             onSave = homeViewModel::saveProgress
         )
@@ -173,7 +177,9 @@ fun ScheduleRow(
     onClick: () -> Unit,
     onStatusClick: () -> Unit
 ) {
-    val completed = schedule.status == "Completed"
+    // Százalékos haladás a rögzített percek alapján (pl. 8 / 10 perc = 80%)
+    val percent = ProgressUtils.percent(schedule)
+    val completed = schedule.status == "Completed" || percent >= 100
     val skipped = schedule.status == "Skipped"
 
     AppCard(onClick = onClick, padding = 12.dp) {
@@ -195,7 +201,25 @@ fun ScheduleRow(
                     color = if (skipped) AppColors.Warning else AppColors.TextSecondary,
                     style = MaterialTheme.typography.bodySmall
                 )
+                if (!skipped) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ProgressBar(
+                            fraction = percent / 100f,
+                            modifier = Modifier.weight(1f),
+                            color = if (completed) AppColors.Success else AppColors.Accent
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "$percent%",
+                            color = if (completed) AppColors.Success else AppColors.Accent,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
+            Spacer(Modifier.width(12.dp))
             StatusCircle(completed = completed, onClick = onStatusClick)
         }
     }
