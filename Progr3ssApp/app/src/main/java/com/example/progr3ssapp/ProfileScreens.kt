@@ -1,7 +1,6 @@
 package com.example.progr3ssapp
 
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -245,8 +244,9 @@ fun EditProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // Rendszer fájlválasztó (OpenDocument): a Letöltések mappát és a Galériát is mutatja
     val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
+        ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) viewModel.uploadImage(uri)
     }
@@ -282,9 +282,7 @@ fun EditProfileScreen(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
                             .clickable(enabled = !state.isUploading) {
-                                picker.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                picker.launch(arrayOf("image/*"))
                             }
                             .padding(6.dp)
                     )
