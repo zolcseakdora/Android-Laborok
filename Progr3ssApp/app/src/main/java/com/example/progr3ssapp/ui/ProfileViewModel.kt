@@ -1,7 +1,12 @@
 package com.example.progr3ssapp.ui
 
 import android.app.Application
+import android.content.ContentResolver
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
+import java.io.ByteArrayOutputStream
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -153,19 +158,20 @@ class EditProfileViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             _uiState.update { it.copy(isUploading = true, error = null, message = null) }
 
+            // A képet kicsinyítjük (max. 1024 px) és JPEG-be tömörítjük,
+            // így bármilyen formátumú / méretű képet el tud fogadni a szerver.
             val bytes = withContext(Dispatchers.IO) {
-                runCatching { resolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+                runCatching { compressImage(resolver, uri) }
+                    .onFailure { Log.e("Progr3ss", "Kép beolvasási hiba", it) }
+                    .getOrNull()
             }
             if (bytes == null) {
                 _uiState.update { it.copy(isUploading = false, error = "Nem sikerült beolvasni a képet.") }
                 return@launch
             }
-            if (bytes.size > 5 * 1024 * 1024) {
-                _uiState.update { it.copy(isUploading = false, error = "A kép legfeljebb 5 MB lehet.") }
-                return@launch
-            }
-            val mime = resolver.getType(uri) ?: "image/jpeg"
-            val ext = if (mime.contains("png")) "png" else "jpg"
+            val mime = "image/jpeg"
+            val ext = "jpg"
+            Log.d("Progr3ss", "Profilkép feltöltése: ${bytes.size} bájt")
 
             repository.uploadProfileImage(bytes, mime, "profile.$ext")
                 .onSuccess { profile ->
@@ -176,10 +182,31 @@ class EditProfileViewModel(application: Application) : AndroidViewModel(applicat
                 }
                 .onFailure { e ->
                     if (e is CancellationException) throw e
+                    Log.e("Progr3ss", "Profilkép feltöltési hiba", e)
                     _uiState.update {
                         it.copy(isUploading = false, error = e.userMessage("Nem sikerült feltölteni a képet."))
                     }
                 }
         }
     }
+}
+
+// Kép beolvasása, kicsinyítése (leghosszabb oldal max. 1024 px) és JPEG tömörítése
+private fun compressImage(resolver: ContentResolver, uri: Uri): ByteArray? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+    var sample = 1
+    while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1024) sample *= 2
+
+    val options = BitmapFactory.Options().apply { inSampleSize = sample }
+    val bitmap = resolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, options)
+    } ?: return null
+
+    val out = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+    bitmap.recycle()
+    return out.toByteArray()
 }
